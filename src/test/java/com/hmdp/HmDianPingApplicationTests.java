@@ -1,9 +1,54 @@
 package com.hmdp;
 
+import com.hmdp.service.IShopService;
+import com.hmdp.utils.RedisIdWorker;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+
+import java.util.concurrent.*;
 
 @SpringBootTest
 class HmDianPingApplicationTests {
 
+    @Autowired
+    IShopService shopService;
+
+    @Autowired
+    RedisIdWorker redisIdWorker;
+
+    @Test
+    void testSaveShop() throws InterruptedException {
+        shopService.saveShop2Redis(1L,10L);
+    };
+
+    @Test
+    void testIdWorker() throws InterruptedException {
+
+        BlockingQueue<Runnable> workQueue = new ArrayBlockingQueue<>(3000);
+
+        ThreadPoolExecutor es = new ThreadPoolExecutor(
+                4, 10, 0,
+                TimeUnit.SECONDS, workQueue
+        );
+
+        CountDownLatch latch = new CountDownLatch(300);
+
+        Runnable task = () -> {
+            for (int i = 0; i < 100; i++) {
+                long id = redisIdWorker.nextId("order");
+                System.out.println("id = " + id);
+            }
+            latch.countDown();
+        };
+        long begin = System.currentTimeMillis();
+        for (int i = 0; i < 300; i++) {
+            es.submit(task);
+        }
+
+        latch.await();
+        long end = System.currentTimeMillis();
+        System.out.println("time = " + (end - begin));
+    }
 
 }
