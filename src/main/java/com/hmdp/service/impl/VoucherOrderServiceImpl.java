@@ -1,9 +1,11 @@
 package com.hmdp.service.impl;
 
+import cn.hutool.json.JSONUtil;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.SeckillVoucher;
 import com.hmdp.entity.VoucherOrder;
 import com.hmdp.mapper.VoucherOrderMapper;
+import com.hmdp.rabbitmq.MQSender;
 import com.hmdp.service.ISeckillVoucherService;
 import com.hmdp.service.IVoucherOrderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -53,6 +55,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private RedissonClient redissonClient;
 
     private static final DefaultRedisScript<Long> redisScript;
+
+    @Autowired
+    private MQSender mqSender;
 
     static {
         //静态代码块初始化Script
@@ -158,7 +163,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 //        orderTask.add(voucherOrder);
 
         //ZJY TODO 2025/9/22:发送消息
-
+        mqSender.sendSeckillMessage(voucherOrder);
 
 
         //下单成功返回订单id

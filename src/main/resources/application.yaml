@@ -23,12 +23,12 @@ spring:
   rabbitmq:
     host: 192.168.64.129 # 你的虚拟机IP
     port: 5672 # 端口
-    virtual-host: /hmall # 虚拟主机
+    virtual-host: hmall # 虚拟主机
     username: hmall # 用户名
     password: 123 # 密码
     listener:
       simple:
-        prefetch: 5 # # 每次单个线程只能获取5条消息，处理完成才能获取下一个消息
+        #prefetch: 5 # # 每次单个线程只能获取5条消息，处理完成才能获取下一个消息
         acknowledge-mode: auto # 自动ack  当业务正常执行时则自动返回ack.  当业务出现异常时，根据异常判断返回不同结果
         retry:
           enabled: true # 开启消费者失败重试
