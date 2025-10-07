@@ -157,7 +157,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
         //ZJY TODO 2025/9/21:一下是用阻塞队列做的我们替换为消息队列
 //        //2.6 获取代理对象
-//        proxy = (IVoucherOrderService)AopContext.currentProxy();
+        //proxy = (IVoucherOrderService)AopContext.currentProxy();
 //
 //        //2.5 放入阻塞队列
 //        orderTask.add(voucherOrder);

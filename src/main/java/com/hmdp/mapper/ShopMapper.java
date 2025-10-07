@@ -3,6 +3,8 @@ package com.hmdp.mapper;
 import com.hmdp.entity.Shop;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
+import java.util.List;
+
 /**
  * <p>
  *  Mapper 接口
@@ -12,5 +14,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
  * @since 2021-12-22
  */
 public interface ShopMapper extends BaseMapper<Shop> {
+
+    List<Long> findIdList();
 
 }

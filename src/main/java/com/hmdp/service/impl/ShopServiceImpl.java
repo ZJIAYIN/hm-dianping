@@ -4,6 +4,8 @@ import cn.hutool.core.util.BooleanUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.google.common.hash.BloomFilter;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.Shop;
 import com.hmdp.mapper.ShopMapper;
@@ -16,10 +18,14 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.PostConstruct;
+import java.math.BigInteger;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.hmdp.utils.RedisConstants.CACHE_SHOP_KEY;
 import static com.hmdp.utils.RedisConstants.LOCK_SHOP_KEY;
@@ -36,17 +42,49 @@ import static com.hmdp.utils.RedisConstants.LOCK_SHOP_KEY;
 public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IShopService {
 
     @Autowired
+    ShopMapper shopMapper;
+
+    @Autowired
     private StringRedisTemplate redisTemplate;
+
+    @Autowired
+    private BloomFilter<Long> bloomFilter;
+
+    @PostConstruct
+    public void initBloomFilter() {
+        int page = 1;
+        int pageSize = 1000; // 每批处理 1000 条
+        List<Long> batchIds;
+
+        do {
+            batchIds = shopMapper.selectObjs(
+                            new QueryWrapper<Shop>()
+                                    .select("id")
+                                    .last("LIMIT " + (page - 1) * pageSize + "," + pageSize)
+                    ).stream()
+                    .map(obj -> ((BigInteger) obj).longValue())
+                    .collect(Collectors.toList());
+
+
+            for (Long id : batchIds) {
+                bloomFilter.put(id);
+            }
+
+            page++;
+
+        } while (!batchIds.isEmpty());
+    }
+
 
     @Override
     public Result getById(Long id) {
 
         //缓存穿透
-        //Shop shop = queryWithPassThrough(id);
+        Shop shop = queryWithPassThrough(id);
         //互斥锁 缓存击穿
         //Shop shop = queryWithMutex(id);
         //  逻辑过期 缓存击穿
-        Shop shop = queryWithLogicExpire(id);
+        //Shop shop = queryWithLogicExpire(id);
 
         if(shop == null){
             return Result.fail("商铺不存在");
@@ -61,6 +99,11 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 
     //缓存穿透
     public Shop queryWithPassThrough(Long id){
+
+        if (!bloomFilter.mightContain(id)) {
+            // 如果不在，说明数据库中肯定不存在，直接null
+            return  null;
+        }
 
         //从redis中查询商铺缓存
         String key = CACHE_SHOP_KEY + id;

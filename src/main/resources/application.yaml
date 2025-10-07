@@ -42,5 +42,8 @@ mybatis-plus:
 logging:
   level:
     com.hmdp: debug
+bloom-filter:
+  expected-insertions: 100 # 期望插入的元素数量
+  fpp: 0.01 # 误判率
 
 
