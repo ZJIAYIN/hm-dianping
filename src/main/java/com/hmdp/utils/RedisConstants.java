@@ -22,4 +22,10 @@ public class RedisConstants {
 
     public static final String REDIS_LOCK_KEY = "lock:";
 
+    public static final String SENDCODE_SENDTIME_KEY ="sms:sendtime:";
+
+    public static final String ONE_LEVERLIMIT_KEY ="limit:onelevel:";
+
+    public static final String TWO_LEVERLIMIT_KEY ="limit:twolevel:";
+
 }

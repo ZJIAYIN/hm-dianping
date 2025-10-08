@@ -57,7 +57,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Autowired
     private MQSender mqSender;
 
-    private RateLimiter rateLimiter=RateLimiter.create(10);
+    //private RateLimiter rateLimiter=RateLimiter.create(10);
 
     static {
         //静态代码块初始化Script
@@ -128,10 +128,6 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Override
     public Result seckillVoucher(Long voucherId) {
 
-        //令牌桶算法，限流
-        if (!rateLimiter.tryAcquire(1000, TimeUnit.MILLISECONDS)){
-            return Result.fail("目前网络正忙，请重试");
-        }
 
         //获取用户
         Long userId = UserHolder.getUser().getId();

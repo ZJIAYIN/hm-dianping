@@ -41,6 +41,45 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     @Override
     public Result sendCode(String phone, HttpSession session) {
+
+        //ZJY TODO 2025/10/8:使用Zset + 时间窗口思想 进行限流
+        // 1. 判断是否在一级限制条件内
+        Boolean oneLevelLimit = redisTemplate.opsForSet().isMember(ONE_LEVERLIMIT_KEY + phone, "1");
+        if (oneLevelLimit != null && oneLevelLimit) {
+            // 在一级限制条件内，不能发送验证码
+            return Result.fail("您需要等5分钟后再请求");
+        }
+
+// 2. 判断是否在二级限制条件内
+        Boolean twoLevelLimit = redisTemplate.opsForSet().isMember(TWO_LEVERLIMIT_KEY + phone, "1");
+        if (twoLevelLimit != null && twoLevelLimit) {
+            // 在二级限制条件内，不能发送验证码
+            return Result.fail("您需要等20分钟后再请求");
+        }
+
+// 3. 检查过去1分钟内发送验证码的次数
+        long oneMinuteAgo = System.currentTimeMillis() - 60 * 1000;
+        long count_oneminute = redisTemplate.opsForZSet().count(SENDCODE_SENDTIME_KEY + phone, oneMinuteAgo, System.currentTimeMillis());
+        if (count_oneminute >= 1) {
+            // 过去1分钟内已经发送了1次，不能再发送验证码
+            return Result.fail("距离上次发送时间不足1分钟，请1分钟后重试");
+        }
+
+        // 4. 检查发送验证码的次数
+        long fiveMinutesAgo = System.currentTimeMillis() - 5 * 60 * 1000;
+        long count_fiveminute = redisTemplate.opsForZSet().count(SENDCODE_SENDTIME_KEY + phone, fiveMinutesAgo, System.currentTimeMillis());
+        if (count_fiveminute % 3 == 2 && count_fiveminute > 5) {
+            // 发送了8, 11, 14, ...次，进入二级限制
+            redisTemplate.opsForSet().add(TWO_LEVERLIMIT_KEY + phone, "1");
+            redisTemplate.expire(TWO_LEVERLIMIT_KEY + phone, 20, TimeUnit.MINUTES);
+            return Result.fail("接下来如需再发送，请等20分钟后再请求");
+        } else if (count_fiveminute == 5) {
+            // 过去5分钟内已经发送了5次，进入一级限制
+            redisTemplate.opsForSet().add(ONE_LEVERLIMIT_KEY + phone, "1");
+            redisTemplate.expire(ONE_LEVERLIMIT_KEY + phone, 5, TimeUnit.MINUTES);
+            return Result.fail("5分钟内已经发送了5次，接下来如需再发送请等待5分钟后重试");
+        }
+
         // TODO 发送短信验证码并保存验证码
 
         //1.校验手机号是否符合
@@ -63,6 +102,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
         //3.发送验证码
         log.info("验证码{}",randomNumbers);
+
+        // 更新发送时间和次数
+        redisTemplate.opsForZSet().add(SENDCODE_SENDTIME_KEY + phone, System.currentTimeMillis() + "", System.currentTimeMillis());
 
         //return Result.fail("功能未完成");
         return Result.ok();
