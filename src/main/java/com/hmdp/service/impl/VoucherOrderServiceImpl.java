@@ -1,6 +1,7 @@
 package com.hmdp.service.impl;
 
 import cn.hutool.json.JSONUtil;
+import com.google.common.util.concurrent.RateLimiter;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.SeckillVoucher;
 import com.hmdp.entity.VoucherOrder;
@@ -26,10 +27,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.util.Collections;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 /**
  * <p>
@@ -58,6 +56,8 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
     @Autowired
     private MQSender mqSender;
+
+    private RateLimiter rateLimiter=RateLimiter.create(10);
 
     static {
         //静态代码块初始化Script
@@ -127,6 +127,11 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
     @Override
     public Result seckillVoucher(Long voucherId) {
+
+        //令牌桶算法，限流
+        if (!rateLimiter.tryAcquire(1000, TimeUnit.MILLISECONDS)){
+            return Result.fail("目前网络正忙，请重试");
+        }
 
         //获取用户
         Long userId = UserHolder.getUser().getId();

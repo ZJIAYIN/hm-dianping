@@ -2,6 +2,8 @@ package com.hmdp.controller;
 
 
 import com.hmdp.dto.Result;
+import com.hmdp.limiting.LimitType;
+import com.hmdp.limiting.RateLimiter;
 import com.hmdp.service.IVoucherOrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,6 +27,7 @@ public class VoucherOrderController {
     IVoucherOrderService voucherOrderService;
 
     @PostMapping("seckill/{id}")
+    @RateLimiter(key = "#voucherId", count = 3, time = 10, limitType = LimitType.IP)
     public Result seckillVoucher(@PathVariable("id") Long voucherId) {
         return voucherOrderService.seckillVoucher(voucherId);
     }
