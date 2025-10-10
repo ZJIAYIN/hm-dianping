@@ -7,6 +7,9 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import static com.hmdp.config.SeckillDelayMQConfig.SECKILL_DELAY;
+import static com.hmdp.config.SeckillDelayMQConfig.SECKILL_DELAY_EXCHANGE;
+
 @Service
 @Slf4j
 public class MQSender {
@@ -23,6 +26,8 @@ public class MQSender {
     public void sendSeckillMessage(VoucherOrder voucherOrder){
         log.info("发送消息"+voucherOrder);
         rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE,ROUTINGKEY,voucherOrder);
+
+
     }
 
 }

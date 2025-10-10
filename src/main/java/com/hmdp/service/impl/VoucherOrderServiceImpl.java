@@ -1,6 +1,7 @@
 package com.hmdp.service.impl;
 
 import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.google.common.util.concurrent.RateLimiter;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.SeckillVoucher;
@@ -12,6 +13,7 @@ import com.hmdp.service.IVoucherOrderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.UserHolder;
+import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
@@ -37,11 +39,16 @@ import java.util.concurrent.*;
  * @author 虎哥
  * @since 2021-12-22
  */
+
+@Slf4j
 @Service
 public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, VoucherOrder> implements IVoucherOrderService {
 
     @Autowired
     ISeckillVoucherService seckillVoucherService;
+
+    @Autowired
+    IVoucherOrderService voucherOrderService;
 
     @Autowired
     RedisIdWorker redisIdWorker;
@@ -261,5 +268,66 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             }
             save(voucherOrder);
         }
+
+
+    // 初始化Lua脚本
+
+    private static final DefaultRedisScript<Long> RECOVER_SCRIPT;
+
+    static {
+        RECOVER_SCRIPT = new DefaultRedisScript<>();
+        RECOVER_SCRIPT.setLocation(new ClassPathResource("recover_stock.lua"));
+        RECOVER_SCRIPT.setResultType(Long.class);
+    }
+
+    /**
+     * 库存恢复核心方法
+     * @param orderId 订单ID
+     * @param voucherId 优惠券ID
+     * @param userId 用户ID
+     */
+    public void recoverStock(Long orderId, Long voucherId, Long userId) {
+        // 1. 数据库层面：更新订单状态为“已取消”+恢复库存（乐观锁保证原子性）
+        // 1.1 先更新订单状态（仅未支付订单可取消）
+
+        UpdateWrapper<VoucherOrder> voucherOrderUpdateWrapper = new UpdateWrapper<>();
+        voucherOrderUpdateWrapper.set("status",4).eq("id",orderId).eq("status",1);
+        boolean update = voucherOrderService.update(voucherOrderUpdateWrapper);
+
+
+        if (update == false) {
+            log.error("订单{}无需恢复(已支付或已取消)",orderId);
+            return;
+        }
+
+         //1.2 恢复数据库库存
+
+        UpdateWrapper<SeckillVoucher> seckillVoucherUpdateWrapper = new UpdateWrapper<>();
+        seckillVoucherUpdateWrapper.setSql("stock = stock + 1").eq("voucher_id",voucherId).eq("stock",seckillVoucherService.getById(voucherId).getStock());
+
+        boolean recoverDb = seckillVoucherService.update(seckillVoucherUpdateWrapper);
+
+        if (!recoverDb) {
+            log.error("订单{}数据库库存恢复失败", orderId);
+            return;
+        }
+
+        // 2. Redis层面：执行Lua脚本恢复库存
+        Long redisResult = redisTemplate.execute(
+        RECOVER_SCRIPT,
+                Collections.emptyList(),
+                orderId.toString(),
+                voucherId.toString(),
+                userId.toString()
+        );
+
+        if (redisResult == 1) {
+            log.info("订单{} 库存恢复成功 (DB+Redis) ",orderId);
+        } else {
+            log.info("订单{} Redis库存已恢复，无需重复操作",orderId);
+
+        }
+    }
+
 
 }
