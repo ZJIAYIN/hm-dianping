@@ -6,6 +6,7 @@ import cn.hutool.extra.servlet.ServletUtil;
 import com.hmdp.exception.RateLimitException;
 import com.hmdp.limiting.LimitType;
 import com.hmdp.limiting.RateLimiter;
+import com.hmdp.utils.UserHolder;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
@@ -65,22 +66,22 @@ public class RateLimiterAspect {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
 
-        // 解析 SpEL 表达式（如果包含 #）
-        if (StrUtil.contains(key, "#")) {
-            Object[] args = joinPoint.getArgs();
-            String[] paramNames = nameDiscoverer.getParameterNames(method);
-
-            if (ArrayUtil.isNotEmpty(paramNames)) {
-                StandardEvaluationContext context = new StandardEvaluationContext();
-                for (int i = 0; i < paramNames.length; i++) {
-                    context.setVariable(paramNames[i], args[i]);
-                }
-
-                Expression expression = parser.parseExpression(key, parserContext);
-                Object value = expression.getValue(context);
-                key = value == null ? "" : value.toString();
-            }
-        }
+//        // 解析 SpEL 表达式（如果包含 #）
+//        if (StrUtil.contains(key, "#")) {
+//            Object[] args = joinPoint.getArgs();
+//            String[] paramNames = nameDiscoverer.getParameterNames(method);
+//
+//            if (ArrayUtil.isNotEmpty(paramNames)) {
+//                StandardEvaluationContext context = new StandardEvaluationContext();
+//                for (int i = 0; i < paramNames.length; i++) {
+//                    context.setVariable(paramNames[i], args[i]);
+//                }
+//
+//                Expression expression = parser.parseExpression(key, parserContext);
+//                Object value = expression.getValue(context);
+//                key = value == null ? "" : value.toString();
+//            }
+//        }
 
         StringBuilder fullKey = new StringBuilder("rate_limit:");
 
@@ -94,7 +95,7 @@ public class RateLimiterAspect {
             fullKey.append(ip).append(":");
         }
 
-        fullKey.append(key);
+        fullKey.append(UserHolder.getUser().getId());
         return fullKey.toString();
     }
 }

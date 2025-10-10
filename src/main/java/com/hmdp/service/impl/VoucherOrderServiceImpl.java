@@ -286,6 +286,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
      * @param voucherId 优惠券ID
      * @param userId 用户ID
      */
+    @Transactional
     public void recoverStock(Long orderId, Long voucherId, Long userId) {
         // 1. 数据库层面：更新订单状态为“已取消”+恢复库存（乐观锁保证原子性）
         // 1.1 先更新订单状态（仅未支付订单可取消）
